@@ -1,0 +1,5 @@
+---
+# defaults file for openstack-cinder-compute
+default: false
+nova_ssd: false
+production: false

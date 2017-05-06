@@ -1,0 +1,96 @@
+---
+# tasks file for openstack-glance
+- name: ensure glance database is present
+  mysql_db:
+    name: glance
+
+- name: ensure glance database user is present
+  mysql_user:
+    name: glance
+    host: "{{ item }}"
+    password: "{{ glance_mysql_password }}"
+    priv: glance.*:ALL
+  with_items:
+    - "%"
+    - localhost
+
+- name: create glance user in keystone
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: service
+    user: glance
+    password: "{{ glance_identity_password }}"
+
+- name: add glance user to the service tenant with the admin role
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: service
+    user: glance
+    role: admin
+
+- name: add glance endpoint
+  keystone_service:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    region: "{{ openstack_region }}"
+    name: glance
+    type: image
+    description: "Image Service"
+    public_url: "{{ glance_public_url }}"
+    internal_url: "{{ glance_internal_url }}"
+    admin_url: "{{ glance_admin_url }}"
+
+- name: ensure {{ component }} packages are installed
+  package:
+    name:
+      - openstack-{{ component }}
+      - python-glanceclient
+    state: present
+
+- name: ensure services are stopped
+  service:
+    name: "{{ item }}"
+    state: stopped
+  with_items:
+    - openstack-glance-api
+    - openstack-glance-registry
+
+- name: ensure {{ component }} sqlite is deleted
+  file:
+    dest: /var/lib/{{ component }}/{{ component }}.sqlite
+    state: absent
+
+- name: set permissions of the django key file
+  file:
+    path: /var/log/glance/api.log
+    state: touch
+    owner: glance
+    group: glance
+    mode: 0644
+
+- name: update configuration files from templates
+  template:
+    src: templates/etc/{{ component }}/{{ item }}
+    dest: /etc/{{ component }}/{{ item }}
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - glance-api.conf
+    - glance-api-paste.ini
+    - glance-registry.conf
+    - glance-registry-paste.ini
+
+- name: ensure database is synced
+  command: /usr/bin/{{ component }}-manage db_sync
+
+- name: ensure services are started and enabled
+  service:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  with_items:
+    - openstack-glance-api
+    - openstack-glance-registry

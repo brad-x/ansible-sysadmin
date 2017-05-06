@@ -1,0 +1,6 @@
+---
+# handlers file for openstack-cinder-compute
+- name: Reload cinder
+  service: 
+    name: openstack-cinder-volume
+    state: restarted

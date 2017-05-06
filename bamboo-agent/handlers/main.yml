@@ -1,0 +1,4 @@
+---
+# handlers file for bamboo-agent
+- name: Reload systemd
+  shell: systemctl daemon-reload

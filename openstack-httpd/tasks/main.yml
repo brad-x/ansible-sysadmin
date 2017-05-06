@@ -1,0 +1,19 @@
+---
+# tasks file for openstack-httpd
+- name: ensure packages are installed
+  package:
+    name:
+      - httpd
+      - mod_wsgi
+      - memcached
+      - python-memcached
+    state: present
+
+- name: ensure services are enabled/started
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items:
+    - memcached
+    - httpd

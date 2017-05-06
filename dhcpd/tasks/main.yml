@@ -1,0 +1,13 @@
+---
+# tasks file for dhcpd
+- name: Include distribution specific variables
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Install dhcpd
+  package: state=present name={{ dhcpd }}
+
+- name: ensure DHCPD is started and enabled
+  service:
+    name: dhcpd
+    state: started
+    enabled: yes

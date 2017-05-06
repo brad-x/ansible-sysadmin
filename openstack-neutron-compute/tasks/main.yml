@@ -1,0 +1,87 @@
+---
+# tasks file for openstack-neutron-compute
+#- name: Create config file backup
+#  command: mv /etc/neutron/neutron.conf /etc/neutron/neutron.ansible.backup.liberty
+#  args:
+#    creates: /etc/neutron/neutron.ansible.backup.liberty
+
+#- name: Create config file backup
+#  command: mv /etc/neutron/plugins/ml2/ml2_conf.ini /etc/neutron/plugins/ml2/ml2_conf.ansible.backup
+#  args:
+#    creates: /etc/neutron/plugins/ml2/ml2_conf.ansible.backup
+
+- name: ensure {{ component }}-controller packages are installed
+  package:
+    name:
+      - openstack-neutron
+      - openstack-neutron-ml2
+      - openstack-neutron-openvswitch
+    state: present
+
+- name: (default) update configuration files from templates
+  template:
+    src: "{{ item }}"
+    dest: /etc/{{ component }}/{{ component }}.conf
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "templates/default/{{ component }}/{{ component }}.conf"
+  when: default == true
+  notify: Reload neutron-openvswitch-agent
+
+- name: (nova-ssd) update configuration files from templates
+  template:
+    src: "{{ item }}"
+    dest: /etc/{{ component }}/{{ component }}.conf
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "templates/nova-ssd/{{ component }}/{{ component }}.conf"
+  when: nova_ssd == true
+  notify: Reload neutron-openvswitch-agent
+
+- name: (production) update configuration files from templates
+  template:
+    src: "{{ item }}"
+    dest: /etc/{{ component }}/{{ component }}.conf
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "templates/production/{{ component }}/{{ component }}.conf"
+  when: production == true
+  notify: Reload neutron-openvswitch-agent
+
+- name: update neutron ML2 plugin configuration file from template
+  template:
+    src: "{{ item }}"
+    dest: /etc/{{ component }}/plugins/ml2/ml2_conf.ini
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "templates/default/{{ component }}/ml2_conf.ini"
+  notify: Reload neutron-openvswitch-agent
+
+- name: Create ml2 plugin symlink to /etc/neutron/plugin.ini
+  file:
+    src: /etc/neutron/plugins/ml2/ml2_conf.ini
+    dest: /etc/neutron/plugin.ini
+    state: link
+  notify: Reload neutron-openvswitch-agent
+
+- name: Deploy neutron-openvswitch-agent systemd unit
+  copy:
+    src: "{{ role_path }}/files/etc/systemd/system/neutron-openvswitch-agent.service"
+    dest: /etc/systemd/system/neutron-openvswitch-agent.service
+
+- name: Reload systemd
+  shell: systemctl daemon-reload 
+
+- name: Start Neutron OpenVSwitch Agent
+  service: 
+    name: neutron-openvswitch-agent
+    state: started
+    enabled: yes

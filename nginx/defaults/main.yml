@@ -1,0 +1,3 @@
+---
+# defaults file for nginx-new
+remove_default_vhost: true

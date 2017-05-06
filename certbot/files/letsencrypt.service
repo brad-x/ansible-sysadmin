@@ -1,0 +1,7 @@
+[Unit]
+Description=Renew letsencrypt certificates
+
+[Service]
+Type=oneshot
+ExecStart=-/usr/bin/letsencrypt renew
+#ExecStart=/bin/systemctl reload nginx

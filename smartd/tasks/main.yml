@@ -1,0 +1,53 @@
+---
+- debug:
+   var: disks
+- name: install smartmontools
+  package:
+    name: smartmontools
+    state: installed
+
+# - name: check if disks support SMART
+#   shell: "smartctl -s on {{ item }} ; smartctl -i {{ item }} | grep -qc 'SMART support is: Enabled'"
+#   with_items:
+#     - disks
+#   register: smart
+
+- name: (Cleanup) Delete smartd config file in /etc
+  file:
+    path: /etc/smartd.conf
+    state: absent
+
+- name: (Cleanup) Delete smartd config file in /etc/smartmontools
+  file:
+    path: /etc/smartmontools/smartd.conf
+    state: absent
+
+- name: (Red Hat) create smartd configuration file
+  template:
+    src: smartd.conf.j2
+    dest: /etc/smartmontools/smartd.conf
+  notify: restart smartd
+  when: ansible_os_family == "RedHat"
+
+- name: (Not Red Hat) create smartd configuration file
+  template:
+    src: smartd.conf.j2
+    dest: /etc/smartd.conf
+  notify: restart smartmontools
+  when: (ansible_os_family == "Debian" or ansible_os_family == "Gentoo")
+
+- name: (Red Hat) enable smartd service
+  service: name=smartd enabled=yes
+  when: (ansible_os_family == "RedHat" or ansible_os_family == "Gentoo")
+
+- name: (Debian) enable smartd on system startup (default file)
+  lineinfile: >
+    dest=/etc/default/smartmontools
+    regexp="^start_smartd="
+    line="start_smartd=yes"
+  notify: restart smartmontools
+  when: ansible_os_family == "Debian"
+
+- name: (Debian) enable smartd service
+  service: name=smartmontools enabled=yes
+  when: ansible_os_family == "Debian"

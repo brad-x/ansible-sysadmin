@@ -1,0 +1,7 @@
+---
+# handlers file for openstack-neutron-compute
+- name: Reload neutron-openvswitch-agent
+  service: 
+    name: neutron-openvswitch-agent
+    state: restarted
+

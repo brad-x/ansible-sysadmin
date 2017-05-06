@@ -1,0 +1,17 @@
+---
+# vars file for openstack-neutron-api
+component: neutron
+subcomponent: server
+packages:
+  - openstack-{{ component }}
+  - openstack-neutron-ml2
+  - python-neutronclient
+  - which
+services:
+  - "{{ component }}-{{ subcomponent }}"
+config_files:
+  - dhcp_agent.ini
+  - l3_agent.ini
+  - metadata_agent.ini
+  - ml2_conf.ini
+  - "{{ component }}.conf"

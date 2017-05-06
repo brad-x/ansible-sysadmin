@@ -1,0 +1,58 @@
+---
+- name: Enable nginx repo.
+  template:
+    src: nginx.repo.j2
+    dest: /etc/yum.repos.d/nginx.repo
+    owner: root
+    group: root
+    mode: 0644
+  when: ansible_os_family == "RedHat"
+
+- name: Add nginx apt key
+  apt_key:
+    url: http://nginx.org/keys/nginx_signing.key
+  when: ansible_os_family == "Debian"
+
+- name: Add nginx repo for Ubuntu
+  apt_repository:
+    repo: "deb http://nginx.org/packages/mainline/ubuntu/ {{ ansible_distribution_release}} nginx"
+    state: present
+    filename: nginx
+    update_cache: yes
+  when: ansible_distribution == "Ubuntu"
+
+- name: (RedHat) Ensure nginx is installed.
+  yum:
+    name: nginx
+    state: installed
+    enablerepo: nginx
+  when: ansible_os_family == "RedHat"
+
+- name: (Debian) Ensure nginx is installed.
+  package:
+    name: nginx
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Remove default nginx vhost config file
+  file:
+    path: "{{ nginx_default_vhost_path }}"
+    state: absent
+  notify: reload nginx
+  when: (remove_default_vhost == true)
+
+- name: Copy nginx fastcgi configuration in place.
+  template:
+    src: fastcgi.conf
+    dest: /etc/nginx/fastcgi.conf
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - reload nginx
+
+- name: Ensure nginx is started and enabled to start at boot.
+  service:
+    name: nginx
+    state: started
+    enabled: yes

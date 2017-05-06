@@ -1,0 +1,99 @@
+---
+# tasks file for openstack-nova-api
+- name: ensure nova databases are present
+  mysql_db:
+    name: "{{ item }}"
+  with_items:
+    - nova
+    - nova_api
+
+- name: ensure nova database user is present
+  mysql_user:
+    name: nova
+    host: "{{ item }}"
+    password: "{{ nova_mysql_password }}"
+    priv: nova.*:ALL/nova_api.*:ALL
+  with_items:
+    - "%"
+    - localhost
+
+- name: create nova user in keystone
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: service
+    user: nova
+    password: "{{ nova_identity_password }}"
+
+- name: add nova user to the service tenant with the admin role
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: service
+    user: nova
+    role: admin
+
+- name: add nova endpoint
+  keystone_service:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    region: "{{ openstack_region }}"
+    name: nova
+    type: compute
+    description: Compute Service
+    public_url: "{{ nova_public_url }}"
+    internal_url: "{{ nova_internal_url }}"
+    admin_url: "{{ nova_admin_url }}"
+
+- name: ensure {{ component }}-controller packages are installed
+  package:
+    name:
+      - openstack-nova-api
+      - openstack-nova-cert
+      - openstack-nova-conductor
+      - openstack-nova-console
+      - openstack-nova-novncproxy
+      - openstack-nova-scheduler
+      - python-novaclient
+    state: present
+
+- name: ensure services are stopped
+  service:
+    name: "{{ item }}"
+    state: stopped
+  with_items:
+    - openstack-nova-api
+    - openstack-nova-cert
+    - openstack-nova-consoleauth
+    - openstack-nova-scheduler
+    - openstack-nova-conductor
+    - openstack-nova-novncproxy
+
+- name: update configuration files from templates
+  template:
+    src: templates/etc/{{ component }}/{{ item }}
+    dest: /etc/{{ component }}/{{ item }}
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "{{ component }}.conf"
+
+- name: ensure database is synced
+  command: /usr/bin/{{ component }}-manage db sync
+
+- name: ensure API database is synced
+  command: /usr/bin/{{ component }}-manage api_db sync
+
+- name: ensure services are started and enabled
+  service:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  with_items:
+    - openstack-nova-api
+    - openstack-nova-cert
+    - openstack-nova-consoleauth
+    - openstack-nova-scheduler
+    - openstack-nova-conductor
+    - openstack-nova-novncproxy

@@ -1,0 +1,11 @@
+---
+# vars file for openstack-glance
+component: glance
+services:
+  - openstack-glance-api
+  - openstack-glance-registry
+config_files:
+  - glance-api.conf
+  - glance-api-paste.ini
+  - glance-registry.conf
+  - glance-registry-paste.ini

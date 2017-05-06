@@ -1,0 +1,6 @@
+---
+# defaults file for openstack-nova-compute
+default: false
+nova_ssd: false
+production: false
+

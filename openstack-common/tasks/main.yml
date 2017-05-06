@@ -1,0 +1,64 @@
+---
+# tasks file for openstack-common
+- name: Ensure prerequisite repositories are installed
+  package:
+    name:
+      - http://rdo.fedorapeople.org/openstack-newton/rdo-release-newton.rpm
+      - epel-release
+    state: present
+
+- name: Ensure base prerequisite packages are installed.
+  package:
+    name:
+      - yum-plugin-priorities
+      - ethtool
+      - openstack-utils
+      - python-openstackclient
+      - openvswitch
+    state: present
+
+- name: Ensure firewalld is disabled
+  package:
+    name: firewalld
+    state: absent
+
+- name: Ensure NetworkManager is disabled
+  package:
+    name: NetworkManager
+    state: absent
+
+- name: Ensure cron is enabled
+  service:
+    name: crond
+    state: started
+    enabled: yes
+
+- name: Disable SELinux
+  selinux:
+    state: disabled
+
+- name: Install sysctl.d files
+  copy:
+    src: "{{ role_path }}/files/etc/sysctl.d/"
+    dest: /etc/sysctl.d/
+    owner: root
+    group: root
+    mode: 0600
+  notify:
+    - Reload sysctl
+
+- name: Install udev rules
+  copy:
+    src: "{{ role_path }}/files/etc/udev/rules.d/"
+    dest: /etc/udev/rules.d/
+    owner: root
+    group: root
+    mode: 0600
+
+- name: Install modules-autoload files
+  copy:
+    src: "{{ role_path }}/files/etc/modules-load.d/"
+    dest: /etc/udev/modules-load.d/
+    owner: root
+    group: root
+    mode: 0600

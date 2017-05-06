@@ -1,0 +1,14 @@
+---
+# tasks file for ntp
+- name: Include distribution specific variables
+  include_vars: "{{ ansible_os_family }}.yml"
+
+- name: Remove chrony
+  package: name=chrony state=absent
+
+- name: Ensure NTP is installed
+  package: state=present name=ntp
+
+- name: Start NTP
+  service: name={{ ntp_daemon }} state=started enabled=yes
+

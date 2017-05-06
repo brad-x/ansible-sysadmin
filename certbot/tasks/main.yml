@@ -1,0 +1,89 @@
+---
+# tasks file for certbot
+# - name: Make sure the known hosts file exists
+#   file: "path={{ ssh_known_hosts_file }} state=touch"
+#   when: certbot_master == false
+#
+# - name: Check host name availability
+#   shell: "ssh-keygen -f {{ ssh_known_hosts_file }} -F {{ item }}"
+#   with_items: ssh_known_hosts
+#   register: ssh_known_host_results
+#   when: certbot_master == false
+#
+# - name: Scan the public key
+#   shell: "{{ ssh_known_hosts_command}} {{ item.item }} >> {{ ssh_known_hosts_file }}"
+#   with_items: ssh_known_host_results.results
+#   when: (item.stdout == "" and certbot_master == false)
+#
+- name: Install epel repo
+  package:
+    name: epel-release
+    state: present
+
+- name: Install certbot from EPEL
+  package:
+    name: certbot
+    state: present
+
+- name: Create /etc/letsencrypt
+  file:
+    path: /etc/letsencrypt
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+  when: certbot_master == true
+
+- name: Create /var/www/acme-challenge
+  file:
+    path: /var/www/acme-challenge/.well-known/acme-challenge/
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+  when: certbot_master == true
+
+- name: Add nginx include file for letsencrypt master node
+  template:
+    src: nginx.master.include.conf
+    dest: /etc/letsencrypt/nginx.include.conf
+  when: certbot_master == true
+
+- name: Add nginx include file for letsencrypt slave node
+  template:
+    src: nginx.include.conf
+    dest: /etc/letsencrypt/nginx.include.conf
+  when: certbot_master == false
+
+- name: Copy letsencrypt nginx config
+  template:
+    src: certbot.conf
+    dest: /etc/nginx/conf.d
+  when: certbot_master == true
+
+- name: Copy letsencrypt systemd unit
+  copy:
+    src: "{{ role_path }}/files/letsencrypt.service"
+    dest: /etc/systemd/system/
+  notify: Reload systemd
+  when: certbot_master == true
+
+- name: Copy letsencrypt systemd timer
+  copy:
+    src: "{{ role_path }}/files/letsencrypt.timer"
+    dest: /etc/systemd/system/
+  notify: Reload systemd
+  when: certbot_master == true
+
+- name: Enable and start letsencrypt timer
+  service:
+    name: letsencrypt.timer
+    state: started
+    enabled: yes
+  when: certbot_master == true
+
+- name: add letsencrypt-sync SSH pubkey
+  authorized_key:
+    user: root
+    key: "{{ lookup('file', '{{ role_path }}/files/ssl-sync_rsa.pub') }}"
+  when: certbot_master == true

@@ -1,0 +1,63 @@
+---
+# tasks file for openstack-cinder-compute
+- debug:
+    var: production
+
+    #- name: Create config file backup
+    #command: mv /etc/cinder/cinder.conf /etc/cinder/cinder.ansible.backup.newton
+    #args:
+    #  creates: /etc/cinder/cinder.ansible.backup.newton
+
+- name: ensure {{ component }} packages are installed
+  package:
+    name:
+      - openstack-cinder
+      - targetcli
+      - python-oslo-db
+      - MySQL-python
+    state: present
+
+- name: (default) update configuration files from templates
+  template:
+    src: "{{ item }}"
+    dest: /etc/{{ component }}/{{ component }}.conf
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "templates/default/{{ component }}/{{ component }}.conf"
+  when: default == true
+  notify: Reload cinder
+
+- name: (nova-ssd) update configuration files from templates
+  template:
+    src: "{{ item }}"
+    dest: /etc/{{ component }}/{{ component }}.conf
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "templates/nova-ssd/{{ component }}/{{ component }}.conf"
+  when: nova_ssd == true
+  notify: Reload cinder
+
+- name: (production) update configuration files from templates
+  template:
+    src: "{{ item }}"
+    dest: /etc/{{ component }}/{{ component }}.conf
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "templates/production/{{ component }}/{{ component }}.conf"
+  when: production == true
+  notify: Reload cinder
+
+- name: ensure services are started and enabled
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items:
+    - openstack-cinder-volume
+

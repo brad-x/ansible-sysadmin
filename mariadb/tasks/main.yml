@@ -1,0 +1,81 @@
+---
+#tasks file for openstack-db
+- name: Add mariadb repo
+  copy:
+    src: mariadb.repo
+    dest: /etc/yum.repos.d/mariadb.repo
+    owner: root
+    mode: 0644
+  when: (install_mariadb_repo == true)
+
+- name: Add mariadb repo key
+  rpm_key:
+    state: present
+    key: https://yum.mariadb.org/RPM-GPG-KEY-MariaDB
+  when: (install_mariadb_repo == true)
+
+- name: ensure MariaDB is installed
+  package:
+    name:
+      - mariadb-server
+    state: present
+
+- name: ensure MySQL-python is installed
+  package:
+    name:
+      - MySQL-python
+    state: present
+
+- name: ensure MariaDB is started and enabled
+  service:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: install MariaDB config file
+  copy:
+    src: "{{ role_path }}/templates/etc/my.cnf"
+    dest: /etc/my.cnf
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - restart MariaDB
+
+- name: update MariaDB root password for all root accounts
+  mysql_user:
+    name: root
+    host: localhost
+    password: "{{ mysql_root_password }}"
+
+- name: copy .my.cnf file with root password credentials
+  template:
+    src: "{{ role_path }}/templates/root/.my.cnf"
+    dest: /root/.my.cnf
+    owner: root
+    group: root
+    mode: 0600
+
+- name: update MariaDB root password for all root accounts
+  mysql_user:
+    name: root
+    host: "{{ item }}"
+    password: "{{ mysql_root_password }}"
+    priv: "*.*:ALL,GRANT"
+  with_items:
+    - "{{ ansible_hostname }}"
+    - 127.0.0.1
+    - ::1
+
+- name: ensure anonymous users are not in the database
+  mysql_user:
+    name: ""
+    host: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ ansible_hostname }}"
+    - "{{ inventory_hostname }}"
+    - localhost
+    - 127.0.0.1
+    - ::1
+    - "%"

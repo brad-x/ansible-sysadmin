@@ -1,0 +1,25 @@
+---
+# tasks file for ceph
+- name: Install Ceph repo
+  yum:
+    name: http://download.ceph.com/rpm-hammer/el7/noarch/ceph-release-1-1.el7.noarch.rpm
+    state: present
+
+- name: Install ceph-deploy
+  package:
+    name: ceph-deploy
+    state: present
+
+- name: (Hammer) Add ceph user
+  user:
+    name: ceph
+
+- name: Add ceph to sudoers
+  copy:
+    src: "{{ role_path }}/files/ceph-sudoer"
+    dest: /etc/sudoers.d/
+
+- name: (SELinux) Disable SELinux
+  selinux:
+    state: disabled
+

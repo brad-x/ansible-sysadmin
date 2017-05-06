@@ -1,0 +1,12 @@
+---
+# tasks file for rabbitmq
+- name: ensure rabbitmq server is installed
+  package:
+    name: rabbitmq-server
+    state: present
+
+- name: ensure rabbitmq server is started and enabled
+  service:
+    name: rabbitmq-server
+    state: started
+    enabled: yes

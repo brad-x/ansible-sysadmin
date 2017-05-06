@@ -1,0 +1,13 @@
+---
+# tasks file for updates
+- name: Update all RPM packages
+  package:
+    name: '*'
+    state: latest
+  when: ansible_os_family == "RedHat"
+
+- name: Update all DEB packages
+  apt:
+    update_cache: yes
+    upgrade: dist
+  when: ansible_os_family == "Debian"

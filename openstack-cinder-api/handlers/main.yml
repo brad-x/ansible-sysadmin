@@ -1,0 +1,9 @@
+---
+# handlers file for openstack-cinder-api
+- name: restart cinder-api
+  service:
+    name: "{{ item }}"
+    state: restarted
+  with_items:
+    - openstack-cinder-api
+    - openstack-cinder-scheduler

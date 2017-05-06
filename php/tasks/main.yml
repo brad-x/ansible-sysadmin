@@ -1,0 +1,28 @@
+---
+# tasks file for php
+- name: Install epel repo
+  package:
+    name: epel-release
+    state: present
+
+- name: Install IUS repo
+  yum:
+    name: "{{ ius_repo_url }}"
+    state: present
+
+- name: Install base PHP packages
+  package:
+    name: "{{ item }}"
+    state: present
+  with_items: "{{ php_packages }}"
+
+- name: Copy PHP config file
+  template:
+    src: php.ini
+    dest: /etc/php.ini
+
+- name: Ensure php-fpm is started and enabled to start at boot.
+  service:
+    name: php-fpm
+    state: restarted
+    enabled: yes

@@ -1,0 +1,16 @@
+---
+# vars file for php
+ius_repo_url: https://centos7.iuscommunity.org/ius-release.rpm
+php_packages:
+  - php56u-fpm
+  - php56u-mysql
+  - php56u-gd
+  - php56u-opcache
+  - php56u-ctype
+  - php56u-curl
+  - php56u-dom
+  - php56u-iconv
+  - php56u-json
+  - php56u-xml
+  - php56u-zip
+  - php56u-mbstring

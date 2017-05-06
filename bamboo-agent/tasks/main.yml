@@ -1,0 +1,42 @@
+---
+# tasks file for bamboo-agent
+- name: Checking for Agent File
+  stat: path={{ bamboo_agent_home }}/{{ bamboo_agent_file }}
+  register: bamboo_jar_exists
+
+- name: Checking for installed agent
+  stat: path={{ bamboo_agent_home }}/installer.properties
+  register: bamboo_agent_installed
+
+- name: Create bamboo agent home
+  file: path={{ bamboo_agent_home }} state=directory mode=0755
+
+- name: Get bamboo agent JAR
+  get_url:
+    url: "{{ bamboo_server }}/{{ bamboo_agent_uri }}/{{ bamboo_agent_file }}"
+    dest: "{{ bamboo_agent_home }}/{{ bamboo_agent_file }}"
+  when: bamboo_jar_exists.stat.exists == false
+
+- name: Install Java
+  package: state=present name=openjdk-8-jdk-headless
+
+- name: Install the agent
+  shell: "java -Xms1024m -Xmx1024m -XX:MaxPermSize=256m -Dbamboo.agent.ignoreServerCertName=true -Dbamboo.home={{ bamboo_agent_home }} -jar {{ bamboo_agent_home }}/{{ bamboo_agent_file }} {{ bamboo_server }}/agentServer/ install"
+  when: (bamboo_agent_installed.stat.exists == false or bamboo_jar_exists.stat.exists == false)
+
+
+- name: Install bamboo-agent systemd unit
+  copy:
+    src: bamboo-agent.service
+    dest: /etc/systemd/system
+    mode: 0644
+  notify: Reload systemd
+
+- name: Add hostname to hosts file
+  lineinfile: dest=/etc/hosts line="{{ ansible_default_ipv4.address }} {{ ansible_hostname }}"
+
+- name: Enable and start docker service
+  service: state=started enabled=yes name=docker
+
+- name: Enable and start bamboo-agent service
+  service: state=restarted enabled=yes name=bamboo-agent

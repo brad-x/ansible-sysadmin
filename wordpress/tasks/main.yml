@@ -1,0 +1,153 @@
+---
+# tasks file for wordpress
+- name: ensure wordpress database is present
+  mysql_db:
+    name: "{{ wordpress_database }}"
+
+- name: ensure wordpress database user is present
+  mysql_user:
+    name: "{{ wordpress_username }}"
+    host: "{{ item }}"
+    password: "{{ wordpress_password }}"
+    priv: "{{ wordpress_database }}.*:ALL"
+  with_items:
+    - "%"
+    - localhost
+
+- name: Fetch random salts for WordPress config
+  local_action: command curl https://api.wordpress.org/secret-key/1.1/salt/
+  register: "wp_salt"
+  become: no
+
+- name: Create /var/www root
+  file:
+    path: /var/www/
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Download WordPress
+  get_url:
+    url: https://wordpress.org/latest.tar.gz
+    dest: /tmp/wordpress.tar.gz
+  become: yes
+  when: restore_wordpress_root == false
+
+- name: Extract WordPress
+  unarchive:
+    src: /tmp/wordpress.tar.gz
+    dest: /var/www/
+    copy: no
+    creates: /var/www/wordpress
+  when: restore_wordpress_root == false
+
+- name: Copy WordPress backup to host
+  copy:
+    src: /tmp/wordpress.tar
+    dest: /tmp/wordpress.tar
+  when: restore_wordpress_root == true
+
+- name: Restore WordPress backup
+  unarchive:
+    src: /tmp/wordpress.tar
+    dest: /
+    copy: no
+    creates: /var/www/wordpress
+  when: restore_wordpress_root == true
+
+- name: copy database backup to host
+  copy:
+    src: /tmp/wp_dump.sql
+    dest: /tmp/wp_dump.sql
+  when: restore_database == true
+
+- name: Restore database backup
+  mysql_db:
+    name: "{{ wordpress_database }}"
+    state: import
+    target: /tmp/wp_dump.sql
+  when: restore_database == true
+
+- name: (Production) Change ownership of WordPress root
+  file:
+    path: /var/www/wordpress/
+    owner: root
+    group: root
+    state: directory
+    recurse: yes
+  when: development == false
+
+- name: (Production) (SELinux) Set contexts permissions on WordPress root
+  sefcontext:
+    target: '/var/www/wordpress(/.*)?'
+    setype: httpd_sys_content_t
+    state: present
+  notify: Apply SELinux file contexts
+  when: development == false
+
+- name: (Production) (SELinux) Set read-write contexts permissions on WordPress uploads
+  sefcontext:
+    target: '/var/www/wordpress/wp-content/uploads(/.*)?'
+    setype: httpd_sys_rw_content_t
+    state: present
+  notify: Apply SELinux file contexts
+  when: development == false
+
+- name: (Production) (SELinux) Make sure NGINX can connect to the network and database
+  seboolean:
+    name: "{{ item }}"
+    state: yes
+    persistent: yes
+  with_items:
+    - httpd_can_network_connect_db
+    - httpd_can_network_connect
+  when: development == false
+
+- name: (Development) Change ownership of WordPress root
+  file:
+    path: /var/www/wordpress/
+    owner: php-fpm
+    group: php-fpm
+    mode: g+rw
+    state: directory
+    recurse: yes
+  when: development == true
+
+- name: ensure wordpress wp-content/uploads exists
+  file:
+    path: /var/www/wordpress/wp-content/uploads
+    owner: php-fpm
+    group: php-fpm
+    mode: g+rw
+    state: directory
+    recurse: yes
+  when: development == true
+
+# - name: Change ownership of WordPress variable data dirs
+#   file:
+#     path: /var/www/wordpress/wp-content/uploads
+#     owner: www-data
+#     group: www-data
+#     state: directory
+#     recurse: yes
+
+- name: Copy WordPress nginx config file
+  template:
+    src: site.conf
+    dest: /etc/nginx/conf.d/{{ wordpress_site_name }}.conf
+
+- name: Copy WordPress config file
+  template:
+    src: wp-config.php.j2
+    dest: /var/www/wordpress/wp-config.php
+
+- name: (Development) (SELinux) Disable SELinux
+  selinux:
+    state: disabled
+  when: development == true
+
+- name: (Production) (SELinux) Enable SELinux
+  selinux:
+    state: disabled
+  when: development == false

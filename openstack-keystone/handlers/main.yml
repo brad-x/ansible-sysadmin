@@ -1,0 +1,4 @@
+---
+# handlers file for openstack-keystone
+- name: restart httpd
+  service: name=httpd state=restarted

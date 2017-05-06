@@ -1,0 +1,18 @@
+---
+# tasks file for mdmonitor
+  - name: software raid - scan raid devices
+    shell: "mdadm --detail --scan"
+    ignore_errors: yes
+    register: mdadm_scan
+    when: software_raid_devices is defined
+    changed_when: false
+
+  - name: software raid - create mdadm config file
+    template: src=mdadm.conf.j2 dest=/etc/mdadm/mdadm.conf
+    when: software_raid_devices is defined
+
+- name: Ensure nginx is started and enabled to start at boot.
+  service:
+    name: mdmonitor
+    state: started
+    enabled: yes

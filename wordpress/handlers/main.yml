@@ -1,0 +1,4 @@
+---
+# handlers file for wordpress
+- name: Apply SELinux file contexts
+  command: restorecon -R /

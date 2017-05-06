@@ -1,0 +1,99 @@
+---
+# tasks file for openstack-cinder-api
+- name: ensure cinder database is present
+  mysql_db:
+    name: cinder
+
+- name: ensure cinder database user is present
+  mysql_user:
+    name: cinder
+    host: "{{ item }}"
+    password: "{{ cinder_mysql_password }}"
+    priv: cinder.*:ALL
+  with_items:
+    - "%"
+    - localhost
+
+- name: create cinder service user
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: service
+    user: cinder
+    password: "{{ cinder_identity_password }}"
+
+- name: add cinder service user to the service tenant with the admin role
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: service
+    user: cinder
+    role: admin
+
+- name: add cinder endpoint to keystone
+  keystone_service:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    region: "{{ openstack_region }}"
+    name: cinder
+    type: volume
+    description: "Volume Service"
+    public_url: "{{ cinder_public_url }}"
+    internal_url: "{{ cinder_internal_url }}"
+    admin_url: "{{ cinder_admin_url }}"
+
+- name: add cinder endpoint to keystone
+  keystone_service:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    region: "{{ openstack_region }}"
+    name: cinderv2
+    type: volumev2
+    description: "Volume Service V2"
+    public_url: "{{ cinderv2_public_url }}"
+    internal_url: "{{ cinderv2_internal_url }}"
+    admin_url: "{{ cinderv2_admin_url }}"
+
+- name: ensure openstack-cinder packages are installed
+  package:
+    name:
+      - openstack-cinder
+      - python-cinderclient
+      - python-oslo-db
+    state: present
+
+- name: ensure services are stopped
+  service:
+    name: "{{ item }}"
+    state: stopped
+  with_items:
+    - openstack-cinder-api
+    - openstack-cinder-scheduler
+
+- name: ensure {{ component }} sqlite is deleted
+  file:
+    dest: /var/lib/{{ component }}/{{ component }}.sqlite
+    state: absent
+
+- name: update configuration files from templates
+  template:
+    src: templates/etc/{{ component }}/{{ item }}
+    dest: /etc/{{ component }}/{{ item }}
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "{{ component }}.conf"
+#  notify: restart cinder-api
+
+- name: ensure database is synced
+  command: /usr/bin/{{ component }}-manage db sync
+
+- name: ensure services are started and enabled
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items:
+    - openstack-cinder-api
+    - openstack-cinder-scheduler

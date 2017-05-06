@@ -1,0 +1,62 @@
+---
+# tasks file for openstack-nova-compute
+#- name: Create config file backup
+#  command: mv /etc/nova/nova.conf /etc/nova/nova.ansible.backup.newton
+#  args:
+#    creates: /etc/nova/nova.ansible.backup.newton
+
+- name: ensure {{ component }}-controller packages are installed
+  package:
+    name:
+      - openstack-nova-compute
+      - python-novaclient
+      - sysfsutils
+      - libvirt-daemon-config-nwfilter
+    state: present
+
+- name: (default) update configuration files from templates
+  template:
+    src: "{{ item }}"
+    dest: /etc/{{ component }}/{{ component }}.conf
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "templates/default/{{ component }}/{{ component }}.conf"
+  when: default == true
+  notify: Reload nova-compute
+
+- name: (nova-ssd) update configuration files from templates
+  template:
+    src: "{{ item }}"
+    dest: /etc/{{ component }}/{{ component }}.conf
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "templates/nova-ssd/{{ component }}/{{ component }}.conf"
+  when: nova_ssd == true
+  notify: Reload nova-compute
+
+- name: (production) update configuration files from templates
+  template:
+    src: "{{ item }}"
+    dest: /etc/{{ component }}/{{ component }}.conf
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "templates/production/{{ component }}/{{ component }}.conf"
+  when: production == true
+  notify: Reload nova-compute
+
+- name: ensure services are started and enabled
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items:
+    - libvirtd
+    - openstack-nova-compute
+    - ksm
+

@@ -1,0 +1,136 @@
+---
+# tasks file for openstack-keystone
+- name: ensure keystone database is present
+  mysql_db:
+    name: keystone
+
+- name: ensure keystone database user is present
+  mysql_user:
+    name: keystone
+    host: "{{ item }}"
+    password: "{{ keystone_mysql_password }}"
+    priv: keystone.*:ALL
+  with_items:
+    - "%"
+    - localhost
+
+- name: ensure {{ component }} packages are installed
+  package:
+    name:
+      - openstack-{{ component }}
+      - python-keystoneclient
+    state: present
+
+# - name: ensure services are stopped
+#   service:
+#     name: "{{ item }}"
+#     state: stopped
+#     enabled: no
+#   with_items:
+#     - openstack-{{ component }}
+
+- name: ensure keystone sqlite is deleted
+  file:
+    dest: /var/lib/{{ component }}/{{ component }}.sqlite
+    state: absent
+
+- name: update configuration files from templates
+  template:
+    src: "{{ role_path }}/templates/etc/{{ component }}/{{ component }}.conf"
+    dest: /etc/{{ component }}/{{ item }}
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "{{ component }}.conf"
+
+- name: ensure database is synced
+  command: /usr/bin/{{ component }}-manage db_sync
+
+### INSTALL KEYSTONE WSGI
+- name: Deploy WSGI config for Keystone to Apache
+  copy:
+    src: "{{ role_path }}/templates/etc/httpd/conf.d/wsgi-{{ component }}.conf"
+    dest: /etc/httpd/conf.d/wsgi-{{ component }}.conf
+
+- name: Create WSGI dir
+  file:
+    path: /var/www/cgi-bin/keystone
+    state: directory
+    mode: 0755
+
+- name: Deploy WSGI for Apache
+  copy:
+    remote_src: true
+    src: /usr/share/keystone/keystone.wsgi
+    dest: /var/www/cgi-bin/keystone/admin
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0755
+
+- name: Deploy WSGI for Apache 2
+  copy:
+    remote_src: true
+    src: /usr/share/keystone/keystone.wsgi
+    dest: /var/www/cgi-bin/keystone/main
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0755
+
+- name: Restart httpd
+  service: name=httpd state=restarted
+
+- name: wait for keystone to come back up
+  wait_for:
+    host: "{{ keystone_endpoint_host }}"
+    port: 35357
+
+- name: create service tenant
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: service
+    tenant_description: "Service Tenant"
+
+- name: add keystone endpoint information
+  keystone_service:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    region: "{{ openstack_region }}"
+    name: keystone
+    type: identity
+    description: "Identity Service"
+    public_url: "{{ keystone_public_url }}"
+    internal_url: "{{ keystone_internal_url }}"
+    admin_url: "{{ keystone_admin_url }}"
+
+- name: create admin tenant
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: admin
+    tenant_description: "Admin Tenant"
+
+- name: create admin user
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: admin
+    user: admin
+    password: "{{ admin_password }}"
+
+- name: create admin role and associate it with admin user
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: admin
+    user: admin
+    role: admin
+
+- name: create Member role and associate it with admin user
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: admin
+    user: admin
+    role: _member_

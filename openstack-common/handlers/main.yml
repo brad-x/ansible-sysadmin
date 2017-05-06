@@ -1,0 +1,4 @@
+---
+# handlers file for openstack-common
+- name: Reload sysctl
+  command: sysctl --system

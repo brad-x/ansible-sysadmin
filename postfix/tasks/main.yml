@@ -1,0 +1,21 @@
+---
+- name: Ensure postfix is installed
+  package:
+    name: postfix
+    state: installed
+
+- name: Copy postfix configuration in place
+  template:
+    src: main.cf
+    dest: /etc/postfix/main.cf
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - reload postfix
+
+- name: Ensure postfix is started and enabled to start at boot
+  service:
+    name: postfix
+    state: started
+    enabled: yes

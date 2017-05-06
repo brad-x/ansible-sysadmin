@@ -1,0 +1,6 @@
+---
+# vars file for bamboo-agent
+bamboo_server: https://bamboo.uncharted.software
+bamboo_agent_uri: agentServer/agentInstaller
+bamboo_agent_file: atlassian-bamboo-agent-installer-5.14.1.jar
+bamboo_agent_home: /opt/atlassian/bamboo

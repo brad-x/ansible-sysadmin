@@ -1,0 +1,46 @@
+---
+# tasks file for openstack-dashboard
+- name: ensure packages are installed
+  package:
+    name:
+      - openstack-dashboard
+    state: present
+
+- name: ensure services are stopped
+  service:
+    name: "{{ item }}"
+    state: stopped
+  with_items:
+    - memcached
+    - httpd
+
+- name: update local_settings.py from template
+  template:
+    src: "{{ role_path }}/templates/etc/openstack-{{ component }}/local_settings"
+    dest: /etc/openstack-{{ component }}/local_settings
+    owner: root
+    group: root
+    mode: 0644
+
+- name: ensure services are started and enabled
+  service:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  with_items:
+    - memcached
+    - httpd
+
+- name: set permissions of the django key file
+  file:
+    path: /usr/share/openstack-dashboard/openstack_dashboard/local/.secret_key_store
+    state: touch
+    owner: apache
+    mode: u+rw,g-r,o-r
+
+- name: set permissions of the django key lock file
+  file:
+    path: /usr/share/openstack-dashboard/openstack_dashboard/local/_usr_share_openstack-dashboard_openstack_dashboard_local_.secret_key_store.lock
+    state: touch
+    owner: apache
+    mode: u+rw,g-r,o-r

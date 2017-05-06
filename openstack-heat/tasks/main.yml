@@ -1,0 +1,105 @@
+---
+# tasks file for openstack-heat
+- name: ensure heat database is present
+  mysql_db: name=heat
+
+- name: ensure heat database user is present
+  mysql_user: name=heat
+              host="{{ item }}"
+              password="{{ heat_mysql_password }}"
+              priv=heat.*:ALL
+  with_items:
+    - "%"
+    - localhost
+
+- name: create heat service user
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: service
+    user: heat
+    password: "{{ heat_identity_password }}"
+
+- name: add heat service user to the service tenant with the admin role
+  keystone_user:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    tenant: service
+    user: heat
+    role: admin
+
+#- os_keystone_domain:
+#     cloud: mycloud
+#     state: present
+#     name: demo
+#     description: Demo Domain
+
+- name: add heat endpoint to keystone
+  keystone_service:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    region: "{{ openstack_region }}"
+    name: heat
+    type: orchestration
+    description: "Heat Orchestration API"
+    public_url: "{{ heat_public_url }}"
+    internal_url: "{{ heat_internal_url }}"
+    admin_url: "{{ heat_admin_url }}"
+
+- name: add cfn endpoint to keystone
+  keystone_service:
+    endpoint: "{{ keystone_bootstrap_endpoint }}"
+    token: "{{ keystone_admin_token }}"
+    region: "{{ openstack_region }}"
+    name: heat-cfn
+    type: cloudformation
+    description: "Heat CloudFormation API"
+    public_url: "{{ cfn_public_url }}"
+    internal_url: "{{ cfn_internal_url }}"
+    admin_url: "{{ cfn_admin_url }}"
+
+- name: ensure {{ component }} packages are installed
+  package:
+    name:
+      - openstack-{{ component }}-api
+      - openstack-{{ component }}-api-cfn
+      - openstack-{{ component }}-engine
+      - python-{{ component }}client
+    state: present
+
+- name: ensure services are stopped
+  service:
+    name: "{{ item }}"
+    state: stopped
+  with_items:
+    - openstack-{{ component }}-api
+    - openstack-{{ component }}-api-cfn
+    - openstack-{{ component }}-engine
+
+- name: ensure {{ component }} sqlite is deleted
+  file:
+    dest: /var/lib/{{ component }}/{{ component }}.sqlite
+    state: absent
+
+- name: update configuration files from templates
+  template:
+    src: templates/etc/{{ component }}/{{ item }}
+    dest: /etc/{{ component }}/{{ item }}
+    owner: "{{ component }}"
+    group: "{{ component }}"
+    mode: 0600
+  with_items:
+    - "{{ component }}.conf"
+
+- name: ensure database is synced
+  command: /usr/bin/{{ component }}-manage db_sync
+
+- name: ensure services are started and enabled
+  service:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  with_items:
+    - openstack-{{ component }}-api
+    - openstack-{{ component }}-api-cfn
+    - openstack-{{ component }}-engine

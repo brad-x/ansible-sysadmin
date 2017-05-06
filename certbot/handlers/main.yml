@@ -1,0 +1,4 @@
+---
+# handlers file for certbot
+- name: Reload systemd
+  shell: systemctl daemon-reload

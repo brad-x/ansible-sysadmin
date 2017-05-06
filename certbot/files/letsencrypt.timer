@@ -1,0 +1,9 @@
+[Unit]
+Description=Run on Sunday at 3 AM
+
+[Timer]
+OnCalendar=Sun *-*-* 3:00
+
+[Install]
+WantedBy=multi-user.target
+

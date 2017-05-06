@@ -1,0 +1,6 @@
+---
+# defaults file for openstack-neutron-compute
+default: false
+nova_ssd: false
+production: false
+
